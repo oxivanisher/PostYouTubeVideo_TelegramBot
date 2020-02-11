@@ -1,0 +1,6 @@
+telegram_token: 'YOUR BOT TOKEN'
+every: 86400‬
+video_ids:
+- "VIDEO ID 1"
+- "VIDEO ID 2"
+- "VIDEO ID 3"
