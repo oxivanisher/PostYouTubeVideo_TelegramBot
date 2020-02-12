@@ -20,6 +20,7 @@ bot.
 
 import logging
 import yaml
+#import dill
 
 with open(r'config.yaml') as file:
     config = yaml.full_load(file)
@@ -33,16 +34,37 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 logger = logging.getLogger(__name__)
 
 
+def time_until_next_run(every):
+
+    return 10
+
+
 # Define a few command handlers. These usually take the two arguments update and
 # context. Error handlers also receive the raised TelegramError object in error.
 def start(update, context):
-    update.message.reply_text('Hello my dudes!')
+    new_job = context.job_queue.run_once(show_timed_video, time_until_next_run(config['every']), context=context)
+    context.chat_data['job'] = new_job
+
+    update.message.reply_text('My dudes, I will send you the videos')
 
 
-def alarm(context):
-    """Send the alarm message."""
+def show_timed_video(context):
+    """Send the next video link."""
     job = context.job
-    context.bot.send_message(job.context, text='Beep!')
+
+    last_video = 0
+    if 'last_video' in context.chat_data:
+        last_video = context.chat_data['last_video']
+
+    next_video = last_video + 1
+    context.chat_data['last_video'] = next_video
+
+    new_job = context.job_queue.run_once(show_timed_video, time_until_next_run(config['every']), context=context)
+    context.chat_data['job'] = new_job
+
+    context.bot.send_message(job.context,
+                             text='It Is Wednesday My Dudes!\nhttps://www.youtube.com/watch?v=%s'
+                                  % config['video_ids'][next_video])
 
 
 # def set_timer(update, context):
@@ -117,7 +139,8 @@ def error(update, context):
 def main():
     """Run bot."""
     # make the bot persistent
-    persistence = PicklePersistence(filename='bot_persistence')
+    persistence = PicklePersistence(filename='bot_persistence', store_user_data=False, store_bot_data=False, store_chat_data=False)
+    # persistence = DictPersistence()
 
     # Create the Updater and pass it your bot's token.
     # Make sure to set use_context=True to use the new context based callbacks
@@ -128,8 +151,10 @@ def main():
     dp = updater.dispatcher
 
     # on different commands - answer in Telegram
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(CommandHandler("help", start))
+    dp.add_handler(CommandHandler("start", start,
+                                  pass_args=True,
+                                  pass_job_queue=True,
+                                  pass_chat_data=True))
     # dp.add_handler(CommandHandler("set", set_timer,
     #                               pass_args=True,
     #                               pass_job_queue=True,
@@ -140,7 +165,6 @@ def main():
                                   pass_chat_data=True))
     dp.add_handler(CommandHandler("show", show_video,
                                   pass_args=True,
-                                  pass_job_queue=True,
                                   pass_chat_data=True))
     # dp.add_handler(CommandHandler("unset", unset, pass_chat_data=True))
 
